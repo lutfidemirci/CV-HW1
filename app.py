@@ -60,6 +60,36 @@ class ImageShowUI:
         imgCanvas.setPixmap(pixMap)
         self.grid.addWidget(imgCanvas, 0, 0, 1, 1)
 
+    def calculateHistogram(self):
+        redCh = self.img[:,:,0]
+        greenCh = self.img[:,:,1]
+        blueCh = self.img[:,:,2]
+
+        xs = np.arange(256)
+
+        redCanvas = FigureCanvas(Figure(figsize=(1, 0.8)))
+        redAx = redCanvas.figure.subplots()
+        redAx.bar(xs, self.hist(redCh), color='red')
+
+        greenCanvas = FigureCanvas(Figure(figsize=(1, 0.8)))
+        greenAx = greenCanvas.figure.subplots()
+        greenAx.bar(xs, self.hist(greenCh), color='green')
+
+        blueCanvas = FigureCanvas(Figure(figsize=(1, 0.8)))
+        blueAx = blueCanvas.figure.subplots()
+        blueAx.bar(xs, self.hist(blueCh), color='blue')
+
+        self.grid.addWidget(redCanvas, 2, 0, 1, 1)
+        self.grid.addWidget(greenCanvas, 3, 0, 1, 1)
+        self.grid.addWidget(blueCanvas, 4, 0, 1, 1)
+
+    def hist(self, data):
+        _hist = np.zeros(256)
+        h, w = data.shape
+        for i in range(h):
+            for j in range(w):
+                _hist[data[i][j]] += 1
+        return _hist
 class HistogramApp(QWidget):
     
     def __init__(self):
@@ -102,12 +132,26 @@ class HistogramApp(QWidget):
         self.move(frameGeometry.topLeft())
         self.setWindowTitle('Histogram Matcher')
         self.show()
-        
-    def selectInputImage(self):
-        print('select Input Image')
-        
+
+    def imgSelected(self, img, imgType):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if imgType == 'Input':
+            self.inputImg = img
+            self.inputShowBox.setImg(img)
+            self.inputShowBox.calculateHistogram()
+            self.inputSelectBox.box.hide()
+            self.inputShowBox.box.show()
+        elif imgType == 'Target':
+            self.targetImg = img
+            self.targetShowBox.setImg(img)
+            self.targetShowBox.calculateHistogram()
+            self.targetSelectBox.box.hide()
+            self.targetShowBox.box.show()
+
+        if (self.inputImg is not None) and (self.targetImg is not None):
+            self.calculateResultImg()
     def selectTargetImage(self):
-        print('select Target Image')
+    def calculateResultImg(self):
 
 
 
