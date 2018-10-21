@@ -2,12 +2,30 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import cv2
+import pdb
+import numpy as np
+import matplotlib
+
+# Make sure that we are using QT5
+matplotlib.use('Qt5Agg')
+
+import matplotlib.pyplot as plt
+
+from matplotlib.backends.qt_compat import QtCore, QtWidgets
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvas,NavigationToolbar2QT as NavigationToolbar)
+
+from matplotlib.figure import Figure
 
 from PyQt5.QtWidgets import (
     QMainWindow, QLabel, QDesktopWidget, QApplication, 
     QGridLayout, QWidget, QPushButton, QGroupBox,
-    QVBoxLayout, QFileDialog
+    QVBoxLayout, QFileDialog, QLabel, QSizePolicy
 )
+
+from PyQt5.QtGui import QImage, QPixmap
+
 
 class ImageSelectUI:
 
@@ -90,10 +108,34 @@ class ImageShowUI:
             for j in range(w):
                 _hist[data[i][j]] += 1
         return _hist
+
+    def cdf(self, data):
+        _hist = self.hist(data)
+        _cdf = np.zeros(256)
+        _sum = 0
+        for i in range(256):
+            _sum += _hist[i]
+            _cdf[i] = _sum
+        _cdf /= _cdf[-1]
+        return _cdf
+
+    def createLUT(self, cdfInput, cdfTarget):
+        LUT = np.zeros(256)
+        for i in range(256):
+            inputVal = cdfInput[i]
+            j = 0
+            while (j < 255) and (cdfTarget[j] < inputVal):
+                j += 1
+            LUT[i] = j
+        return LUT
+
+    
 class HistogramApp(QWidget):
     
     def __init__(self):
         super().__init__()
+        self.inputImg = None
+        self.targetImg = None
         self.initUI()
         
     def initUI(self):
@@ -150,13 +192,58 @@ class HistogramApp(QWidget):
 
         if (self.inputImg is not None) and (self.targetImg is not None):
             self.calculateResultImg()
-    def selectTargetImage(self):
+
     def calculateResultImg(self):
+        redChInp = self.inputImg[:,:,0]
+        greenChInp = self.inputImg[:,:,1]
+        blueChInp = self.inputImg[:,:,2]
+
+        redChTrg = self.targetImg[:,:,0]
+        greenChTrg = self.targetImg[:,:,1]
+        blueChTrg = self.targetImg[:,:,2]
+
+        redInpCDF = self.targetShowBox.cdf(redChInp)
+        greenInpCDF = self.targetShowBox.cdf(greenChInp)
+        blueInpCDF = self.targetShowBox.cdf(blueChInp)
+
+        redTrgCDF = self.targetShowBox.cdf(redChTrg)
+        greenTrgCDF = self.targetShowBox.cdf(greenChTrg)
+        blueTrgCDF = self.targetShowBox.cdf(blueChTrg)
+
+        redLUT = self.targetShowBox.createLUT(redInpCDF, redTrgCDF)
+        greenLUT = self.targetShowBox.createLUT(greenInpCDF, greenTrgCDF)
+        blueLUT = self.targetShowBox.createLUT(blueInpCDF, blueTrgCDF)
+
+        resultRed = self.execLUT(redChInp, redLUT)
+        resultGreen = self.execLUT(greenChInp, greenLUT)
+        resultBlue = self.execLUT(blueChInp, blueLUT)
+
+        resultImg = np.dstack((resultRed,resultGreen,resultBlue))
+        self.resultShowBox.setImg(resultImg)
+        self.resultShowBox.calculateHistogram()
 
 
+    def execLUT(self, inp, LUT):
+        inp = np.array(inp)
+        x, y = inp.shape
+        for i in range(x):
+            for j in range(y):
+                inp[i][j] = LUT[inp[i][j]]
+        return inp
+
+
+        
+        print('Calculating result image')
 
 
 if __name__ == '__main__':
+    
+    font = {'family' : 'normal',
+        'weight' : 'bold',
+        'size'   : 6}
+
+    matplotlib.rc('font', **font)
+
     app = QApplication(sys.argv)
     ex = HistogramApp()
     sys.exit(app.exec_())
