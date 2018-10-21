@@ -9,12 +9,62 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QFileDialog
 )
 
+class ImageSelectUI:
+
+    def __init__(self, app, imgType):
+        self.app = app
+        self.imgType = imgType
+        self.box = QGroupBox(f'Select {imgType} Image')
+        self.initUI(imgType)
+
+    def initUI(self, imgType):
+        layout = QVBoxLayout()
+        selectButton = QPushButton(f'Select {imgType} Image')
+        selectButton.clicked.connect(self.selectImage)
+        layout.addWidget(selectButton)
+        self.box.setLayout(layout)
+    
+    def selectImage(self, type):
+        imgName, _ = QFileDialog.getOpenFileName(
+            self.app,
+            f'Select {type} Image',
+            '~',
+            'Image Files (*.png *.jpg *.bmp)'
+        )
+        self.img = cv2.imread(imgName, cv2.IMREAD_ANYCOLOR)
+        self.app.imgSelected(self.img, self.imgType)
+    
+
+class ImageShowUI:
+    def __init__(self, app, imgType):
+        self.app = app
+        self.imgType = imgType
+        self.box = QGroupBox(f'{imgType} Image')
+        self.grid = QGridLayout()
+        self.box.setLayout(self.grid)
+        self.img = None
+    
+    def setImg(self, img):
+        self.img = img
+        qImg = QImage(
+            self.img.data,
+            self.img.shape[1], # Width
+            self.img.shape[0], # Height
+            self.img.shape[1] * 3, # Width * 3 : bytesperline
+            QImage.Format_RGB888
+        )
+        imgCanvas = QLabel()
+        imgCanvas.setAlignment(QtCore.Qt.AlignCenter)
+        origPixMap = QPixmap(qImg)
+        pixMap = origPixMap.scaled(200, 200, QtCore.Qt.KeepAspectRatio, QtCore.Qt.FastTransformation)
+        imgCanvas.setPixmap(pixMap)
+        self.grid.addWidget(imgCanvas, 0, 0, 1, 1)
+
 class HistogramApp(QWidget):
     
     def __init__(self):
         super().__init__()
         self.initUI()
-        
         
     def initUI(self):
         qtRectangle = self.frameGeometry()
@@ -22,34 +72,29 @@ class HistogramApp(QWidget):
         qtRectangle.moveCenter(centerPoint)
         self.move(qtRectangle.topLeft())
 
-        grid = QGridLayout()
-        self.setLayout(grid)
-
         # Input Image Box
-        box = QGroupBox('Input Image')
-        vbox = QVBoxLayout()
-        selectButton = QPushButton('Select Input Image')
-        selectButton.clicked.connect(self.selectInputImage)
-        vbox.addWidget(selectButton)
-        box.setLayout(vbox)
-        grid.addWidget(box, 0, 0)
+        self.inputSelectBox = ImageSelectUI(self, 'Input')
+        self.inputShowBox = ImageShowUI(self, 'Input')
+        self.inputShowBox.box.hide()
 
         # Target Image Box
-        box = QGroupBox('Target Image')
-        vbox = QVBoxLayout()
-        selectButton = QPushButton('Select Input Image')
-        selectButton.clicked.connect(self.selectTargetImage)
-        vbox.addWidget(selectButton)
-        box.setLayout(vbox)
-        grid.addWidget(box, 0, 1)
+        self.targetSelectBox = ImageSelectUI(self, 'Target')
+        self.targetShowBox = ImageShowUI(self, 'Target')
+        self.targetShowBox.box.hide()
 
         # Result Image Box
-        box = QGroupBox('Result Image')
-        # vbox = QVBoxLayout()
-        # box.setLayout(vbox)
-        grid.addWidget(box, 0, 2)
+        self.resultShowBox = ImageShowUI(self, 'Result')
 
-        self.resize(1000, 600)
+        #Grid System
+        self.grid = QGridLayout()
+        self.setLayout(self.grid)
+        self.grid.addWidget(self.inputSelectBox.box, 0, 0)
+        self.grid.addWidget(self.inputShowBox.box, 0, 0)
+        self.grid.addWidget(self.targetSelectBox.box, 0, 1)
+        self.grid.addWidget(self.targetShowBox.box, 0, 1)
+        self.grid.addWidget(self.resultShowBox.box, 0, 2)
+
+        self.resize(1100, 800)
 
         windowCenter  = QDesktopWidget().availableGeometry().center()
         frameGeometry = self.frameGeometry()
